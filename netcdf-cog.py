@@ -23,7 +23,7 @@ def run_command(command, work_dir):
 
 def check_dir(fname):
     file_name = fname.split('/')
-    rel_path = pjoin(*file_name[-2:])
+    rel_path = pjoin(*file_name[-1:])
     file, extension = splitext(rel_path)
     yaml_file = file+'.yaml'
     return yaml_file, file
@@ -36,8 +36,8 @@ def getfilename(fname, outdir):
     yaml_fname, rel_path = check_dir(fname)
     out_fname = pjoin(outdir, rel_path)
     out_yfname = pjoin(outdir, yaml_fname)
-    if not exists(dirname(out_yfname)):
-        os.makedirs(dirname(out_yfname))
+#    if not exists(dirname(out_yfname)):
+#        os.makedirs(dirname(out_yfname))
     return out_yfname, out_fname, rel_path
 
 
@@ -77,61 +77,60 @@ def _write_cogtiff(fname, out_f_name, outdir):
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         dataset = gdal.Open(fname, gdal.GA_ReadOnly)
-        subdatasets = dataset.GetSubDatasets()
-        for netcdf in subdatasets[:-1]:
-            band_name = get_bandname(netcdf[0])
-            out_fname = out_f_name + '_' + band_name + '.tif'
-            env = ['GDAL_DISABLE_READDIR_ON_OPEN=YES',
-                   'CPL_VSIL_CURL_ALLOWED_EXTENSIONS=.tif']
-            subprocess.check_call(env, shell=True)
+        dataset.SetMetadataItem('NC_GLOBAL#history', 'Nill')
+        dataset = None
+        out_fname = out_f_name + '.tif'
+        env = ['GDAL_DISABLE_READDIR_ON_OPEN=YES',
+               'CPL_VSIL_CURL_ALLOWED_EXTENSIONS=.tif']
+        subprocess.check_call(env, shell=True)
 
-            # copy to a tempfolder
-            temp_fname = pjoin(tmpdir, basename(out_fname))
-            to_cogtif = [
-                         'gdal_translate',
-                         netcdf[0],
-                         temp_fname]
-            run_command(to_cogtif, tmpdir)
+        # copy to a tempfolder
+        temp_fname = pjoin(tmpdir, basename(out_fname))
+        to_cogtif = [
+                    'gdal_translate',
+                    fname,
+                    temp_fname]
+        run_command(to_cogtif, tmpdir)
 
-            # Add Overviews
-            add_ovr = [
-                       'gdaladdo',
-                       '-r',
-                       'average',
-                       '--config',
-                       'GDAL_TIFF_OVR_BLOCKSIZE',
-                       '1024',
-                       temp_fname,
-                       '2',
-                       '4',
-                       '8',
-                       '16',
-                       '32']
-            run_command(add_ovr, tmpdir)
+        # Add Overviews
+        add_ovr = [
+                  'gdaladdo',
+                  '-r',
+                  'average',
+                  '--config',
+                  'GDAL_TIFF_OVR_BLOCKSIZE',
+                  '1024',
+                  temp_fname,
+                  '2',
+                  '4',
+                  '8',
+                  '16',
+                  '32']
+        run_command(add_ovr, tmpdir)
 
-            # Convert to COG
-            cogtif = [
-                      'gdal_translate',
-                      '-co',
-                      'TILED=YES',
-                      '-co',
-                      'COPY_SRC_OVERVIEWS=YES',
-                      '-co',
-                      'COMPRESS=DEFLATE',
-                      '--config',
-                      'GDAL_TIFF_OVR_BLOCKSIZE',
-                      '1024',
-                      '-co',
-                      'BLOCKXSIZE=1024',
-                      '-co',
-                      'BLOCKYSIZE=1024',
-                      temp_fname,
-                      out_fname]
-            run_command(cogtif, outdir)
+        # Convert to COG
+        cogtif = [
+                    'gdal_translate',
+                    '-co',
+                    'TILED=YES',
+                    '-co',
+                    'COPY_SRC_OVERVIEWS=YES',
+                    '-co',
+                    'COMPRESS=DEFLATE',
+                    '--config',
+                    'GDAL_TIFF_OVR_BLOCKSIZE',
+                    '1024',
+                    '-co',
+                    'BLOCKXSIZE=1024',
+                    '-co',
+                    'BLOCKYSIZE=1024',
+                    temp_fname,
+                    out_fname]
+        run_command(cogtif, outdir)
 
 
 @click.command(help="\b Convert netcdf to Geotiff and then to Cloud Optimized Geotiff using gdal."
-" Mandatory Requirement: GDAL version should be <=2.2")
+                    " Mandatory Requirement: GDAL version should be <=2.2")
 @click.option('--path', '-p', required=True, help="Read the netcdfs from this folder", type=click.Path(exists=True, readable=True))
 @click.option('--output', '-o', required=True, help="Write COG's into this folder",
               type=click.Path(exists=True, writable=True))
@@ -145,8 +144,8 @@ def main(path, output):
             f_name = pjoin(path, fname)
             logging.info("Reading %s", basename(f_name))
             yaml_fname, gtiff_fname, rel_path = getfilename(f_name, output_dir)
-            _write_dataset(f_name, yaml_fname, rel_path)
-            logging.info("Writing dataset Yaml to %s", basename(yaml_fname))
+#            _write_dataset(f_name, yaml_fname, rel_path)
+#            logging.info("Writing dataset Yaml to %s", basename(yaml_fname))
             _write_cogtiff(f_name, gtiff_fname, output_dir)
             count = count+1
             logging.info("Writing COG to %s, %i", basename(gtiff_fname), count)
