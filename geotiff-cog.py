@@ -119,7 +119,7 @@ def main(path, output):
             if fname.endswith('.tif'):
                 f_name = os.path.join(path,fname)
                 logging.info("Reading %s", basename(f_name))
-                filename = getfilename(f_name, output_dir)
+                filename = basename(f_name)
                 _write_cogtiff(f_name, filename, output_dir)
                 count=count+1
                 logging.info("Writing COG to %s, %i", dirname(filename), count)
